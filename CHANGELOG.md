@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2025-01-04
+
+### Changed
+- Parallelize session parsing with Promise.all for faster startup
+- Remove Zod validation, use direct JSON property access
+- Reduced bundle from 617 to 540 modules
+- Session loading now ~180ms for 184 sessions
+
+## [0.2.2] - 2025-01-04
+
+### Added
+- ASCII art banner in install script and README
+
+## [0.2.1] - 2025-01-04
+
+### Added
+- `ch` shortcut symlink for quicker access
+- LICENSE file (MIT)
+- CHANGELOG.md
+
+### Fixed
+- Version mismatch in CLI (was showing 0.1.0 instead of 0.2.0)
+
 ## [0.2.0] - 2025-01-04
 
 ### Added
