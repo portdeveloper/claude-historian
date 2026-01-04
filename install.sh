@@ -46,8 +46,12 @@ fi
 # Make executable
 chmod +x "$INSTALL_DIR/claude-historian"
 
+# Create ch shortcut symlink
+ln -sf "$INSTALL_DIR/claude-historian" "$INSTALL_DIR/ch"
+
 echo ""
 echo "✅ claude-historian $version installed to $INSTALL_DIR/claude-historian"
+echo "   Shortcut 'ch' also available"
 echo ""
 
 # Check if install dir is in PATH
@@ -59,4 +63,4 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     echo ""
 fi
 
-echo "Run 'claude-historian' to browse your Claude Code sessions!"
+echo "Run 'ch' (or 'claude-historian') to browse your Claude Code sessions!"

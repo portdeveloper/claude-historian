@@ -28,10 +28,10 @@ Or download the binary directly from [GitHub Releases](https://github.com/portde
 
 ## Usage
 
-Run `claude-historian` in any directory:
+Run `ch` (or `claude-historian`) in any directory:
 
 ```bash
-claude-historian
+ch
 ```
 
 ### Keyboard Controls
