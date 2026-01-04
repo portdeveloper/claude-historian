@@ -29,6 +29,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [showMissing, setShowMissing] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   // Calculate visible height for the tree
@@ -89,34 +90,45 @@ export function App() {
 
   // Handle keyboard input
   useInput((input, key) => {
+    // Dismiss error on any key press
+    if (error) {
+      setError(null);
+      return;
+    }
+
     // Handle delete confirmation mode
     if (mode === 'confirm-delete') {
       if (input === 'y' || input === 'Y') {
-        if (sessionToDelete) {
-          // Capture session in local variable to avoid race condition
-          const sessionToDeleteNow = sessionToDelete;
-          setSessionToDelete(null);
-          setMode('browse');
+        if (sessionToDelete && !deleting) {
+          setDeleting(true);
 
-          deleteSession(sessionToDeleteNow.filePath)
-            .then(() => {
-              // Remove session from state
-              setProjects((prev) =>
-                prev.map((p) => ({
-                  ...p,
-                  sessions: p.sessions.filter((s) => s.id !== sessionToDeleteNow.id),
-                })).filter((p) => p.sessions.length > 0)
-              );
+          deleteSession(sessionToDelete.filePath)
+            .then((result) => {
+              if (result.success) {
+                // Remove session from state
+                setProjects((prev) =>
+                  prev.map((p) => ({
+                    ...p,
+                    sessions: p.sessions.filter((s) => s.id !== sessionToDelete.id),
+                  })).filter((p) => p.sessions.length > 0)
+                );
+              } else {
+                setError(`Failed to delete: ${result.error}`);
+              }
             })
-            .catch((err) => {
-              setError(`Failed to delete: ${err.message}`);
+            .finally(() => {
+              setDeleting(false);
+              setSessionToDelete(null);
+              setMode('browse');
             });
         }
         return;
       }
       if (input === 'n' || input === 'N' || key.escape) {
-        setSessionToDelete(null);
-        setMode('browse');
+        if (!deleting) {
+          setSessionToDelete(null);
+          setMode('browse');
+        }
         return;
       }
       return;
@@ -293,6 +305,7 @@ export function App() {
     return (
       <Box flexDirection="column" padding={1}>
         <Text color="red">Error: {error}</Text>
+        <Text dimColor>Press any key to continue</Text>
       </Box>
     );
   }
@@ -336,12 +349,18 @@ export function App() {
 
       {mode === 'confirm-delete' && sessionToDelete && (
         <Box paddingX={1} paddingY={1} flexDirection="column">
-          <Text color="yellow">Delete this session?</Text>
-          <Text dimColor>"{sessionToDelete.summary}"</Text>
-          <Text>
-            <Text color="green">[y]</Text> Yes, delete
-            <Text color="red">[n]</Text> No, cancel
-          </Text>
+          {deleting ? (
+            <Text color="yellow">Deleting...</Text>
+          ) : (
+            <>
+              <Text color="yellow">Delete this session?</Text>
+              <Text dimColor>"{sessionToDelete.summary}"</Text>
+              <Text>
+                <Text color="green">[y]</Text> Yes, delete
+                <Text color="red">[n]</Text> No, cancel
+              </Text>
+            </>
+          )}
         </Box>
       )}
 
