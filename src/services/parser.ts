@@ -131,3 +131,83 @@ export async function parseSessionFile(
     gitBranch,
   };
 }
+
+export interface PreviewMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp?: Date;
+}
+
+/**
+ * Parse session messages for preview display
+ */
+export async function parseSessionMessages(
+  filePath: string,
+  limit: number = 10
+): Promise<PreviewMessage[]> {
+  try {
+    await access(filePath);
+  } catch {
+    return [];
+  }
+
+  const messages: PreviewMessage[] = [];
+  const fileStream = createReadStream(filePath);
+  const rl = createInterface({
+    input: fileStream,
+    crlfDelay: Infinity,
+  });
+
+  try {
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      if (messages.length >= limit) break;
+
+      let jsonData: unknown;
+      try {
+        jsonData = JSON.parse(line);
+      } catch {
+        continue;
+      }
+
+      const result = RawLineSchema.safeParse(jsonData);
+      if (!result.success) continue;
+
+      const parsed = result.data;
+
+      if (parsed.type === 'user') {
+        const userMsg = parsed as RawUserMessage;
+        const content = userMsg.message?.content;
+        if (content && typeof content === 'string') {
+          messages.push({
+            role: 'user',
+            content,
+            timestamp: userMsg.timestamp ? new Date(userMsg.timestamp) : undefined,
+          });
+        }
+      }
+
+      if (parsed.type === 'assistant') {
+        const assistantMsg = parsed as RawAssistantMessage;
+        // Extract text content from assistant message
+        const textContent = assistantMsg.message?.content
+          ?.filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+          .map((c) => c.text)
+          .join('\n');
+
+        if (textContent) {
+          messages.push({
+            role: 'assistant',
+            content: textContent,
+            timestamp: assistantMsg.timestamp ? new Date(assistantMsg.timestamp) : undefined,
+          });
+        }
+      }
+    }
+  } finally {
+    rl.close();
+    fileStream.destroy();
+  }
+
+  return messages;
+}

@@ -1,11 +1,19 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
+import Fuse from 'fuse.js';
 import { scanSessions } from '../services/scanner';
 import { launchSession, deleteSession } from '../services/launcher';
+import { parseSessionMessages, type PreviewMessage } from '../services/parser';
 import { ProjectTree } from './ProjectTree';
 import { StatusBar } from './StatusBar';
 import { SearchInput } from './SearchInput';
+import { PreviewModal } from './PreviewModal';
 import type { Project, Session } from '../types';
+
+interface SearchableSession extends Session {
+  projectPath: string;
+  projectShortPath: string;
+}
 
 interface FlatItem {
   type: 'project' | 'session' | 'missing-header';
@@ -24,13 +32,23 @@ export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mode, setMode] = useState<'browse' | 'search' | 'confirm-delete'>('browse');
+  const [mode, setMode] = useState<'browse' | 'search' | 'confirm-delete' | 'confirm-bulk-delete' | 'preview'>('browse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMissing, setShowMissing] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [markedSessions, setMarkedSessions] = useState<Set<string>>(new Set());
   const [showHelp, setShowHelp] = useState(false);
+  const [previewSession, setPreviewSession] = useState<Session | null>(null);
+  const [previewMessages, setPreviewMessages] = useState<PreviewMessage[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Keep refs for use in async handlers (avoids stale closures)
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
+  const markedSessionsRef = useRef(markedSessions);
+  markedSessionsRef.current = markedSessions;
 
   // Calculate visible height for the tree
   const terminalHeight = stdout?.rows || 24;
@@ -134,6 +152,72 @@ export function App() {
       return;
     }
 
+    // Handle bulk delete confirmation mode
+    if (mode === 'confirm-bulk-delete') {
+      if (input === 'y' || input === 'Y') {
+        const currentMarked = markedSessionsRef.current;
+        if (currentMarked.size > 0 && !deleting) {
+          setDeleting(true);
+
+          // Get file paths for marked sessions (use refs to get latest state)
+          const filePaths: { id: string; path: string }[] = [];
+          for (const project of projectsRef.current) {
+            for (const session of project.sessions) {
+              if (currentMarked.has(session.id)) {
+                filePaths.push({ id: session.id, path: session.filePath });
+              }
+            }
+          }
+
+          // Delete all marked sessions
+          Promise.all(filePaths.map((f) => deleteSession(f.path)))
+            .then((results) => {
+              const successIds = new Set(
+                results
+                  .map((r, i) => (r.success ? filePaths[i].id : null))
+                  .filter((id): id is string => id !== null)
+              );
+              const failCount = results.filter((r) => !r.success).length;
+
+              // Remove successful deletions from state
+              setProjects((prev) =>
+                prev
+                  .map((p) => ({
+                    ...p,
+                    sessions: p.sessions.filter((s) => !successIds.has(s.id)),
+                  }))
+                  .filter((p) => p.sessions.length > 0)
+              );
+
+              if (failCount > 0) {
+                setError(`Failed to delete ${failCount} session(s)`);
+              }
+            })
+            .finally(() => {
+              setDeleting(false);
+              setMarkedSessions(new Set());
+              setMode('browse');
+            });
+        }
+        return;
+      }
+      if (input === 'n' || input === 'N' || key.escape) {
+        if (!deleting) {
+          setMode('browse');
+        }
+        return;
+      }
+      return;
+    }
+
+    // Handle preview mode - close on any key
+    if (mode === 'preview') {
+      setPreviewSession(null);
+      setPreviewMessages([]);
+      setMode('browse');
+      return;
+    }
+
     if (mode === 'search') {
       if (key.escape) {
         setMode('browse');
@@ -153,11 +237,78 @@ export function App() {
       return;
     }
 
+    // Delete - bulk if sessions are marked, otherwise single
     if (input === 'd' || input === 'D') {
+      if (markedSessionsRef.current.size > 0) {
+        // Bulk delete all marked sessions
+        setMode('confirm-bulk-delete');
+      } else {
+        // Single delete current session
+        const item = flatItems[selectedIndex];
+        if (item?.type === 'session' && item.session) {
+          setSessionToDelete(item.session);
+          setMode('confirm-delete');
+        }
+      }
+      return;
+    }
+
+    // Toggle mark on current session
+    if (input === 'x') {
       const item = flatItems[selectedIndex];
       if (item?.type === 'session' && item.session) {
-        setSessionToDelete(item.session);
-        setMode('confirm-delete');
+        setMarkedSessions((prev) => {
+          const next = new Set(prev);
+          if (next.has(item.session!.id)) {
+            next.delete(item.session!.id);
+          } else {
+            next.add(item.session!.id);
+          }
+          return next;
+        });
+      }
+      return;
+    }
+
+    // Mark/unmark all visible sessions
+    if (input === 'X') {
+      const visibleSessions = flatItems
+        .filter((i) => i.type === 'session' && i.session)
+        .map((i) => i.session!.id);
+
+      if (visibleSessions.length === 0) return;
+
+      // If all visible are marked, unmark all. Otherwise, mark all.
+      const allMarked = visibleSessions.every((id) => markedSessions.has(id));
+      setMarkedSessions((prev) => {
+        const next = new Set(prev);
+        for (const id of visibleSessions) {
+          if (allMarked) {
+            next.delete(id);
+          } else {
+            next.add(id);
+          }
+        }
+        return next;
+      });
+      return;
+    }
+
+    // Preview session
+    if (input === ' ' || input === 'p') {
+      const item = flatItems[selectedIndex];
+      if (item?.type === 'session' && item.session) {
+        setPreviewSession(item.session);
+        setPreviewLoading(true);
+        setMode('preview');
+
+        parseSessionMessages(item.session.filePath, 10)
+          .then((msgs) => {
+            setPreviewMessages(msgs);
+          })
+          .finally(() => {
+            setPreviewLoading(false);
+          });
       }
       return;
     }
@@ -344,6 +495,7 @@ export function App() {
           visibleHeight={visibleHeight}
           showMissing={showMissing}
           missingSessionCount={missingSessionCount}
+          markedSessions={markedSessions}
         />
       </Box>
 
@@ -364,25 +516,57 @@ export function App() {
         </Box>
       )}
 
+      {mode === 'confirm-bulk-delete' && (
+        <Box paddingX={1} paddingY={1} flexDirection="column">
+          {deleting ? (
+            <Text color="yellow">Deleting {markedSessions.size} sessions...</Text>
+          ) : (
+            <>
+              <Text color="yellow">Delete {markedSessions.size} marked session{markedSessions.size === 1 ? '' : 's'}?</Text>
+              <Text>
+                <Text color="green">[y]</Text> Yes, delete all
+                <Text color="red">[n]</Text> No, cancel
+              </Text>
+            </>
+          )}
+        </Box>
+      )}
+
+      {mode === 'preview' && previewSession && (
+        <PreviewModal
+          session={previewSession}
+          messages={previewMessages}
+          loading={previewLoading}
+        />
+      )}
+
       {showHelp && (
         <Box paddingX={1} paddingY={1} flexDirection="column" borderStyle="round" borderColor="cyan">
           <Text bold color="cyan">Keyboard Shortcuts</Text>
           <Text> </Text>
-          <Text><Text color="yellow">↑/↓</Text>     Navigate up/down</Text>
-          <Text><Text color="yellow">←/→</Text>     Collapse/expand project</Text>
-          <Text><Text color="yellow">enter</Text>   Select session to resume</Text>
-          <Text><Text color="yellow">g</Text>       Go to top</Text>
-          <Text><Text color="yellow">G</Text>       Go to bottom</Text>
-          <Text><Text color="yellow">d</Text>       Delete selected session</Text>
-          <Text><Text color="yellow">r</Text>       Refresh list</Text>
-          <Text><Text color="yellow">/</Text>       Search</Text>
-          <Text><Text color="yellow">q</Text>       Quit</Text>
+          <Text bold dimColor>Navigation</Text>
+          <Text><Text color="yellow">↑/↓</Text>       Navigate up/down</Text>
+          <Text><Text color="yellow">←/→</Text>       Collapse/expand project</Text>
+          <Text><Text color="yellow">g/G</Text>       Go to top/bottom</Text>
+          <Text><Text color="yellow">/</Text>         Search (fuzzy)</Text>
+          <Text> </Text>
+          <Text bold dimColor>Actions</Text>
+          <Text><Text color="yellow">enter</Text>     Resume session</Text>
+          <Text><Text color="yellow">space/p</Text>   Preview messages</Text>
+          <Text><Text color="yellow">r</Text>         Refresh list</Text>
+          <Text> </Text>
+          <Text bold dimColor>Delete</Text>
+          <Text><Text color="yellow">x</Text>         Mark/unmark session</Text>
+          <Text><Text color="yellow">X</Text>         Mark/unmark all visible</Text>
+          <Text><Text color="yellow">d</Text>         Delete (marked or current)</Text>
+          <Text> </Text>
+          <Text><Text color="yellow">q/esc</Text>     Quit</Text>
           <Text> </Text>
           <Text dimColor>Press any key to close</Text>
         </Box>
       )}
 
-      <StatusBar mode={mode} />
+      <StatusBar mode={mode} markedCount={markedSessions.size} />
     </Box>
   );
 }
@@ -392,31 +576,45 @@ function filterProjects(projects: Project[], query: string): Project[] {
     return projects;
   }
 
-  const lowerQuery = query.toLowerCase();
+  // Build flat list of searchable sessions
+  const searchableSessions: SearchableSession[] = projects.flatMap((project) =>
+    project.sessions.map((session) => ({
+      ...session,
+      projectPath: project.path,
+      projectShortPath: project.shortPath,
+    }))
+  );
 
+  // Create Fuse instance for fuzzy search
+  const fuse = new Fuse(searchableSessions, {
+    keys: ['summary', 'gitBranch', 'projectShortPath'],
+    threshold: 0.4,
+    ignoreLocation: true,
+    includeScore: true,
+  });
+
+  // Search and get matching session IDs grouped by project
+  const results = fuse.search(query);
+  const matchingSessionsByProject = new Map<string, Set<string>>();
+
+  for (const result of results) {
+    const session = result.item;
+    if (!matchingSessionsByProject.has(session.projectPath)) {
+      matchingSessionsByProject.set(session.projectPath, new Set());
+    }
+    matchingSessionsByProject.get(session.projectPath)!.add(session.id);
+  }
+
+  // Filter projects to only include those with matching sessions
   return projects
     .map((project) => {
-      // Check if project path matches
-      const projectMatches = project.shortPath.toLowerCase().includes(lowerQuery);
-
-      // Filter sessions that match
-      const matchingSessions = project.sessions.filter(
-        (s) =>
-          s.summary.toLowerCase().includes(lowerQuery) ||
-          s.gitBranch?.toLowerCase().includes(lowerQuery)
-      );
-
-      if (projectMatches) {
-        // If project matches, show all sessions
-        return { ...project, expanded: true };
+      const matchingIds = matchingSessionsByProject.get(project.path);
+      if (!matchingIds || matchingIds.size === 0) {
+        return null;
       }
 
-      if (matchingSessions.length > 0) {
-        // If sessions match, show only matching sessions
-        return { ...project, sessions: matchingSessions, expanded: true };
-      }
-
-      return null;
+      const matchingSessions = project.sessions.filter((s) => matchingIds.has(s.id));
+      return { ...project, sessions: matchingSessions, expanded: true };
     })
     .filter((p): p is Project => p !== null);
 }

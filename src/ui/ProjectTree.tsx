@@ -17,9 +17,10 @@ interface Props {
   visibleHeight: number;
   showMissing: boolean;
   missingSessionCount: number;
+  markedSessions: Set<string>;
 }
 
-export function ProjectTree({ flatItems, selectedIndex, scrollOffset, visibleHeight, showMissing, missingSessionCount }: Props) {
+export function ProjectTree({ flatItems, selectedIndex, scrollOffset, visibleHeight, showMissing, missingSessionCount, markedSessions }: Props) {
   // Only render visible items
   const visibleItems = flatItems.slice(scrollOffset, scrollOffset + visibleHeight);
 
@@ -63,6 +64,7 @@ export function ProjectTree({ flatItems, selectedIndex, scrollOffset, visibleHei
               session={item.session}
               isSelected={item.index === selectedIndex}
               isLast={isLast}
+              isMarked={markedSessions.has(item.session.id)}
             />
           );
         }

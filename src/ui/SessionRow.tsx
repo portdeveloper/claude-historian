@@ -6,10 +6,12 @@ interface Props {
   session: Session;
   isSelected: boolean;
   isLast: boolean;
+  isMarked?: boolean;
 }
 
-export function SessionRow({ session, isSelected, isLast }: Props) {
+export function SessionRow({ session, isSelected, isLast, isMarked }: Props) {
   const prefix = isLast ? '└──' : '├──';
+  const mark = isMarked ? '◉ ' : '  ';
   const timeStr = formatRelativeTime(session.updatedAt);
   const msgCount = `${session.messageCount} msgs`;
 
@@ -22,7 +24,7 @@ export function SessionRow({ session, isSelected, isLast }: Props) {
 
   return (
     <Box flexShrink={0}>
-      <Text dimColor wrap="truncate">    {prefix} </Text>
+      <Text dimColor wrap="truncate">  {mark}{prefix} </Text>
       <Text
         backgroundColor={isSelected ? 'blue' : undefined}
         color={isSelected ? 'white' : undefined}
