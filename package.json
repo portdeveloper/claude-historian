@@ -1,6 +1,6 @@
 {
   "name": "claude-historian",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interactive CLI browser for Claude Code sessions",
   "type": "module",
   "bin": {
