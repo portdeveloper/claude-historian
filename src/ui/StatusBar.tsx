@@ -35,7 +35,7 @@ export function StatusBar({ mode, markedCount = 0 }: Props) {
   return (
     <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingX={1}>
       <Text dimColor>
-        {markedText}[↑↓ move] [x mark] [d delete] [/ search] [? help] [q quit]
+        {markedText}[↑↓ move] [space preview] [x mark] [d delete] [/ search] [? help] [q quit]
       </Text>
     </Box>
   );
