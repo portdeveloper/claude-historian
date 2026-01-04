@@ -6,15 +6,16 @@ Interactive CLI browser for Claude Code sessions. Navigate your projects and ses
 $ claude-historian
 
 ▼ experiments/historian (3 sessions)
-    ├── Initial planning session       just now    12 msgs
-    ├── Research claude code plugins   1 hour ago  8 msgs
-    └── Setup project structure        2 hours ago 5 msgs
-▼ experiments/collab-dict (12 sessions)
-    ├── Teacher login feature          1 month ago 28 msgs
-    └── Word wall animation            1 month ago 15 msgs
-▶ buidlguidl/extractor (18 sessions)
+    ├── Initial planning session  [main]     just now    12 msgs
+    ├── Research claude code plugins         1 hour ago  8 msgs
+    └── Setup project structure   [dev]      2 hours ago 5 msgs
+▼ buidlguidl/abi.ninja (2 sessions)
+    ├── Fix contract parsing      [main]     1 day ago   28 msgs
+    └── Add ABI validation                   1 week ago  15 msgs
+▶ buidlguidl/extractor (10 sessions)
+▶ Sessions from deleted folders (133)
 
-[↑↓ navigate] [←→ expand/collapse] [enter select] [/ search] [q quit]
+[↑↓ move] [←→ expand] [enter select] [d delete] [r refresh] [/ search] [? help] [q quit]
 ```
 
 ## Installation
@@ -38,19 +39,24 @@ claude-historian
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | Navigate up/down |
-| `←` | Collapse project / go to parent |
-| `→` | Expand project |
+| `←` / `→` | Collapse/expand project |
 | `Enter` | Select (expand project or launch session) |
+| `g` / `G` | Go to top / bottom |
+| `d` | Delete session (with confirmation) |
+| `r` | Refresh list |
 | `/` | Search/filter |
-| `Esc` | Cancel search |
-| `q` | Quit |
+| `?` | Show help overlay |
+| `q` / `Esc` | Quit |
 
 ## Features
 
 - **Hierarchical view**: Projects grouped with sessions nested underneath
+- **Git branch display**: See which branch each session was on
 - **Recent first**: Sessions sorted by most recent activity
 - **Quick search**: Filter projects and sessions by typing `/`
+- **Session management**: Delete old sessions with confirmation
 - **Direct launch**: Select a session to immediately resume with `claude --resume`
+- **Orphaned sessions**: Sessions from deleted folders grouped separately
 - **Agent sessions hidden**: Only shows main conversation sessions
 
 ## Development
