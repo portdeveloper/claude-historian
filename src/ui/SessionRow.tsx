@@ -15,22 +15,23 @@ export function SessionRow({ session, isSelected, isLast }: Props) {
   const msgCount = `${session.messageCount} msgs`;
 
   // Truncate summary to fit
-  const maxSummaryLen = 40;
+  const maxSummaryLen = 35;
   let summary = session.summary.replace(/\n/g, ' ').trim();
   if (summary.length > maxSummaryLen) {
     summary = summary.slice(0, maxSummaryLen - 1) + '…';
   }
 
   return (
-    <Box>
-      <Text dimColor>    {prefix} </Text>
+    <Box flexShrink={0}>
+      <Text dimColor wrap="truncate">    {prefix} </Text>
       <Text
         backgroundColor={isSelected ? 'blue' : undefined}
         color={isSelected ? 'white' : undefined}
+        wrap="truncate"
       >
         {summary}
       </Text>
-      <Text dimColor>  {timeStr}  {msgCount}</Text>
+      <Text dimColor wrap="truncate">  {timeStr}  {msgCount}</Text>
     </Box>
   );
 }

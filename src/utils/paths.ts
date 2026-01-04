@@ -27,6 +27,9 @@ export function decodeProjectPath(encodedName: string): string {
  */
 export function getShortPath(fullPath: string): string {
   const segments = fullPath.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return '(root)';
+  }
   if (segments.length <= 2) {
     return segments.join('/');
   }

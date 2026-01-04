@@ -5,8 +5,8 @@ import { SessionRow } from './SessionRow';
 import type { Project, Session } from '../types';
 
 interface FlatItem {
-  type: 'project' | 'session';
-  project: Project;
+  type: 'project' | 'session' | 'missing-header';
+  project?: Project;
   session?: Session;
   index: number;
 }
@@ -15,13 +15,37 @@ interface Props {
   projects: Project[];
   flatItems: FlatItem[];
   selectedIndex: number;
+  scrollOffset: number;
+  visibleHeight: number;
+  showMissing: boolean;
+  missingSessionCount: number;
 }
 
-export function ProjectTree({ projects, flatItems, selectedIndex }: Props) {
+export function ProjectTree({ projects, flatItems, selectedIndex, scrollOffset, visibleHeight, showMissing, missingSessionCount }: Props) {
+  // Only render visible items
+  const visibleItems = flatItems.slice(scrollOffset, scrollOffset + visibleHeight);
+
   return (
     <Box flexDirection="column">
-      {flatItems.map((item, idx) => {
-        if (item.type === 'project') {
+      {visibleItems.map((item, idx) => {
+        if (item.type === 'missing-header') {
+          const prefix = showMissing ? '▼' : '▶';
+          const isSelected = item.index === selectedIndex;
+          return (
+            <Box key="missing-header" flexShrink={0}>
+              <Text
+                backgroundColor={isSelected ? 'blue' : undefined}
+                color={isSelected ? 'white' : 'gray'}
+                dimColor={!isSelected}
+                wrap="truncate"
+              >
+                {prefix} Sessions from deleted folders ({missingSessionCount})
+              </Text>
+            </Box>
+          );
+        }
+
+        if (item.type === 'project' && item.project) {
           return (
             <ProjectRow
               key={`project-${item.project.path}`}
@@ -31,7 +55,7 @@ export function ProjectTree({ projects, flatItems, selectedIndex }: Props) {
           );
         }
 
-        if (item.type === 'session' && item.session) {
+        if (item.type === 'session' && item.session && item.project) {
           const sessionIndex = item.project.sessions.indexOf(item.session);
           const isLast = sessionIndex === item.project.sessions.length - 1;
 

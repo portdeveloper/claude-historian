@@ -1,4 +1,4 @@
-import { readdir } from 'fs/promises';
+import { readdir, access } from 'fs/promises';
 import { join } from 'path';
 import {
   getClaudeProjectsDir,
@@ -9,6 +9,18 @@ import {
 } from '../utils/paths';
 import { parseSessionFile } from './parser';
 import type { Project, Session } from '../types';
+
+/**
+ * Check if a directory exists
+ */
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface SessionFile {
   filePath: string;
@@ -64,6 +76,11 @@ export async function scanSessions(): Promise<Project[]> {
     try {
       const session = await parseSessionFile(filePath, projectPath, sessionId);
 
+      // Skip empty sessions (no messages = nothing to resume)
+      if (session.messageCount === 0) {
+        continue;
+      }
+
       if (!projectMap.has(projectPath)) {
         projectMap.set(projectPath, []);
       }
@@ -81,11 +98,15 @@ export async function scanSessions(): Promise<Project[]> {
     // Sort sessions by updatedAt (most recent first)
     sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
+    // Check if project directory still exists
+    const exists = await directoryExists(path);
+
     projects.push({
       path,
       shortPath: getShortPath(path),
       sessions,
       expanded: false,
+      exists,
     });
   }
 

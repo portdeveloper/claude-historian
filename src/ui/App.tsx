@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { scanSessions } from '../services/scanner';
 import { launchSession } from '../services/launcher';
 import { ProjectTree } from './ProjectTree';
@@ -8,20 +8,30 @@ import { SearchInput } from './SearchInput';
 import type { Project, Session } from '../types';
 
 interface FlatItem {
-  type: 'project' | 'session';
-  project: Project;
+  type: 'project' | 'session' | 'missing-header';
+  project?: Project;
   session?: Session;
   index: number;
 }
 
+const HEADER_LINES = 4; // Title + subtitle + padding
+const FOOTER_LINES = 2; // Status bar
+
 export function App() {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
+
+  // Calculate visible height for the tree
+  const terminalHeight = stdout?.rows || 24;
+  const visibleHeight = Math.max(5, terminalHeight - HEADER_LINES - FOOTER_LINES - (mode === 'search' ? 2 : 0));
 
   // Load sessions on mount
   useEffect(() => {
@@ -36,16 +46,38 @@ export function App() {
       });
   }, []);
 
+  // Separate existing and missing projects
+  const filteredProjects = filterProjects(projects, searchQuery);
+  const existingProjects = filteredProjects.filter(p => p.exists);
+  const missingProjects = filteredProjects.filter(p => !p.exists);
+  const missingSessionCount = missingProjects.reduce((sum, p) => sum + p.sessions.length, 0);
+
   // Build flat list of selectable items
   const flatItems: FlatItem[] = [];
-  const filteredProjects = filterProjects(projects, searchQuery);
 
-  for (const project of filteredProjects) {
+  for (const project of existingProjects) {
     flatItems.push({ type: 'project', project, index: flatItems.length });
 
     if (project.expanded) {
       for (const session of project.sessions) {
         flatItems.push({ type: 'session', project, session, index: flatItems.length });
+      }
+    }
+  }
+
+  // Add missing projects section if any exist
+  if (missingProjects.length > 0) {
+    flatItems.push({ type: 'missing-header', index: flatItems.length });
+
+    if (showMissing) {
+      for (const project of missingProjects) {
+        flatItems.push({ type: 'project', project, index: flatItems.length });
+
+        if (project.expanded) {
+          for (const session of project.sessions) {
+            flatItems.push({ type: 'session', project, session, index: flatItems.length });
+          }
+        }
       }
     }
   }
@@ -72,23 +104,39 @@ export function App() {
     }
 
     if (key.upArrow) {
-      setSelectedIndex((i) => Math.max(0, i - 1));
+      setSelectedIndex((i) => {
+        const newIndex = Math.max(0, i - 1);
+        // Adjust scroll if selection goes above visible area
+        if (newIndex < scrollOffset) {
+          setScrollOffset(newIndex);
+        }
+        return newIndex;
+      });
       return;
     }
 
     if (key.downArrow) {
-      setSelectedIndex((i) => Math.min(flatItems.length - 1, i + 1));
+      setSelectedIndex((i) => {
+        const newIndex = Math.min(flatItems.length - 1, i + 1);
+        // Adjust scroll if selection goes below visible area
+        if (newIndex >= scrollOffset + visibleHeight) {
+          setScrollOffset(newIndex - visibleHeight + 1);
+        }
+        return newIndex;
+      });
       return;
     }
 
     if (key.leftArrow) {
       const item = flatItems[selectedIndex];
-      if (item?.type === 'project' && item.project.expanded) {
+      if (item?.type === 'missing-header' && showMissing) {
+        setShowMissing(false);
+      } else if (item?.type === 'project' && item.project?.expanded) {
         toggleProject(item.project.path, false);
-      } else if (item?.type === 'session') {
+      } else if (item?.type === 'session' && item.project) {
         // Move to parent project
         const projectIndex = flatItems.findIndex(
-          (i) => i.type === 'project' && i.project.path === item.project.path
+          (i) => i.type === 'project' && i.project?.path === item.project?.path
         );
         if (projectIndex !== -1) {
           setSelectedIndex(projectIndex);
@@ -99,7 +147,9 @@ export function App() {
 
     if (key.rightArrow) {
       const item = flatItems[selectedIndex];
-      if (item?.type === 'project' && !item.project.expanded) {
+      if (item?.type === 'missing-header' && !showMissing) {
+        setShowMissing(true);
+      } else if (item?.type === 'project' && item.project && !item.project.expanded) {
         toggleProject(item.project.path, true);
       }
       return;
@@ -107,9 +157,16 @@ export function App() {
 
     if (key.return) {
       const item = flatItems[selectedIndex];
-      if (item?.type === 'project') {
+      if (item?.type === 'missing-header') {
+        setShowMissing(!showMissing);
+      } else if (item?.type === 'project' && item.project) {
         toggleProject(item.project.path, !item.project.expanded);
-      } else if (item?.type === 'session' && item.session) {
+      } else if (item?.type === 'session' && item.session && item.project) {
+        if (!item.project.exists) {
+          // Can't launch session for missing project directory
+          setError(`Cannot resume: directory no longer exists\n${item.project.path}`);
+          return;
+        }
         // Launch Claude with this session
         exit();
         launchSession(item.session.id, item.project.path);
@@ -175,11 +232,15 @@ export function App() {
         </Box>
       )}
 
-      <Box flexDirection="column" paddingX={1} paddingY={1}>
+      <Box flexDirection="column" paddingX={1} paddingY={1} overflow="hidden">
         <ProjectTree
-          projects={filteredProjects}
+          projects={existingProjects}
           flatItems={flatItems}
           selectedIndex={selectedIndex}
+          scrollOffset={scrollOffset}
+          visibleHeight={visibleHeight}
+          showMissing={showMissing}
+          missingSessionCount={missingSessionCount}
         />
       </Box>
 

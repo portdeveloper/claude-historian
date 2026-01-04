@@ -14,6 +14,7 @@ export interface Project {
   shortPath: string;
   sessions: Session[];
   expanded: boolean;
+  exists: boolean; // Whether the project directory still exists
 }
 
 export interface AppState {
