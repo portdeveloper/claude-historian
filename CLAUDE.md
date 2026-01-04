@@ -24,7 +24,8 @@ src/
 │   ├── ProjectRow.tsx  # Single project row (collapsible)
 │   ├── SessionRow.tsx  # Single session row (summary, branch, time, msgs)
 │   ├── SearchInput.tsx # Filter input
-│   └── StatusBar.tsx   # Bottom bar with keyboard hints
+│   ├── StatusBar.tsx   # Bottom bar with keyboard hints
+│   └── PreviewModal.tsx # Session message preview overlay
 ├── services/
 │   ├── scanner.ts     # Discovers sessions from ~/.claude/projects/
 │   ├── parser.ts      # Parses .jsonl files, extracts metadata
@@ -79,13 +80,16 @@ bun run build:local      # Local binary only
 | ↑/↓ | Navigate |
 | ←/→ | Collapse/expand |
 | Enter | Select session to resume |
+| Space/p | Preview session messages |
 | g | Go to top |
 | G | Go to bottom |
-| d | Delete session (with confirmation) |
+| x | Mark/unmark session |
+| X | Mark/unmark all visible |
+| d | Delete (marked sessions or current) |
 | r | Refresh list |
-| / | Search |
+| / | Search (fuzzy) |
 | ? | Help overlay |
-| q | Quit |
+| q/Esc | Quit |
 
 ## Code Patterns
 

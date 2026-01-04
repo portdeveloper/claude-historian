@@ -15,7 +15,7 @@ $ claude-historian
 ▶ buidlguidl/extractor (10 sessions)
 ▶ Sessions from deleted folders (133)
 
-[↑↓ move] [←→ expand] [enter select] [d delete] [r refresh] [/ search] [? help] [q quit]
+[↑↓ move] [space preview] [x mark] [d delete] [/ search] [? help] [q quit]
 ```
 
 ## Installation
@@ -41,10 +41,13 @@ claude-historian
 | `↑` / `↓` | Navigate up/down |
 | `←` / `→` | Collapse/expand project |
 | `Enter` | Select (expand project or launch session) |
+| `Space` / `p` | Preview session messages |
 | `g` / `G` | Go to top / bottom |
-| `d` | Delete session (with confirmation) |
+| `x` | Mark/unmark session |
+| `X` | Mark/unmark all visible sessions |
+| `d` | Delete session(s) (marked or current) |
 | `r` | Refresh list |
-| `/` | Search/filter |
+| `/` | Search/filter (fuzzy) |
 | `?` | Show help overlay |
 | `q` / `Esc` | Quit |
 
@@ -53,8 +56,9 @@ claude-historian
 - **Hierarchical view**: Projects grouped with sessions nested underneath
 - **Git branch display**: See which branch each session was on
 - **Recent first**: Sessions sorted by most recent activity
-- **Quick search**: Filter projects and sessions by typing `/`
-- **Session management**: Delete old sessions with confirmation
+- **Fuzzy search**: Filter projects and sessions with intelligent matching
+- **Session preview**: View the first few messages without leaving the app
+- **Bulk delete**: Mark multiple sessions and delete them at once
 - **Direct launch**: Select a session to immediately resume with `claude --resume`
 - **Orphaned sessions**: Sessions from deleted folders grouped separately
 - **Agent sessions hidden**: Only shows main conversation sessions
