@@ -18,7 +18,6 @@ Claude Historian provides an interactive TUI (terminal user interface) to naviga
 ```
 src/
 ├── index.tsx          # Entry point, renders <App />
-├── cli.ts             # Commander CLI setup
 ├── ui/
 │   ├── App.tsx        # Main component, state management, keyboard handling
 │   ├── ProjectTree.tsx # Renders visible slice of projects/sessions
@@ -31,10 +30,17 @@ src/
 │   ├── parser.ts      # Parses .jsonl files, extracts metadata
 │   └── launcher.ts    # Spawns `claude --resume <id>`
 ├── utils/
+│   ├── log.ts         # Debug logging utility
 │   ├── paths.ts       # Path utilities (decode, short path)
 │   └── time.ts        # Relative time formatting
 └── types/
     └── index.ts       # TypeScript interfaces
+
+bin/
+└── claude-historian   # Shell wrapper for bun execution
+
+scripts/
+└── build.ts           # Multi-platform build script
 ```
 
 ## Key Concepts
@@ -59,7 +65,8 @@ bun run dev              # Run in dev mode
 bun run src/index.tsx    # Run directly
 
 # Build
-bun build src/index.tsx --compile --outfile dist/claude-historian
+bun run build            # Multi-platform build (scripts/build.ts)
+bun run build:local      # Local binary only
 
 # Test locally
 ./dist/claude-historian
