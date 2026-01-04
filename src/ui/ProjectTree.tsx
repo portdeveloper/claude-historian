@@ -27,12 +27,12 @@ export function ProjectTree({ projects, flatItems, selectedIndex, scrollOffset, 
 
   return (
     <Box flexDirection="column">
-      {visibleItems.map((item, idx) => {
+      {visibleItems.map((item) => {
         if (item.type === 'missing-header') {
           const prefix = showMissing ? '▼' : '▶';
           const isSelected = item.index === selectedIndex;
           return (
-            <Box key="missing-header" flexShrink={0}>
+            <Box key={`item-${item.index}`} flexShrink={0}>
               <Text
                 backgroundColor={isSelected ? 'blue' : undefined}
                 color={isSelected ? 'white' : 'gray'}
@@ -48,7 +48,7 @@ export function ProjectTree({ projects, flatItems, selectedIndex, scrollOffset, 
         if (item.type === 'project' && item.project) {
           return (
             <ProjectRow
-              key={`project-${item.project.path}`}
+              key={`item-${item.index}`}
               project={item.project}
               isSelected={item.index === selectedIndex}
             />
@@ -61,7 +61,7 @@ export function ProjectTree({ projects, flatItems, selectedIndex, scrollOffset, 
 
           return (
             <SessionRow
-              key={`session-${item.session.id}`}
+              key={`item-${item.index}`}
               session={item.session}
               isSelected={item.index === selectedIndex}
               isLast={isLast}
