@@ -1,5 +1,14 @@
 # claude-historian
 
+```
+     ██████╗██╗  ██╗
+    ██╔════╝██║  ██║
+    ██║     ███████║
+    ██║     ██╔══██║
+    ╚██████╗██║  ██║
+     ╚═════╝╚═╝  ╚═╝
+```
+
 Interactive CLI browser for Claude Code sessions. Navigate your projects and sessions in a tree view, and resume any session with a single keystroke.
 
 ```

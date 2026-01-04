@@ -4,7 +4,21 @@ set -e
 REPO="portdeveloper/claude-historian"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
-echo "Installing claude-historian..."
+echo ""
+echo "        ╭──────────────────────────────────────╮"
+echo "        │                                      │"
+echo "        │     ██████╗██╗  ██╗                  │"
+echo "        │    ██╔════╝██║  ██║                  │"
+echo "        │    ██║     ███████║                  │"
+echo "        │    ██║     ██╔══██║                  │"
+echo "        │    ╚██████╗██║  ██║                  │"
+echo "        │     ╚═════╝╚═╝  ╚═╝                  │"
+echo "        │                                      │"
+echo "        │    claude-historian                  │"
+echo "        │    Browse & resume Claude sessions   │"
+echo "        │                                      │"
+echo "        ╰──────────────────────────────────────╯"
+echo ""
 
 # Detect platform
 case "$(uname -s)-$(uname -m)" in
@@ -18,30 +32,33 @@ case "$(uname -s)-$(uname -m)" in
         ;;
 esac
 
-echo "Detected platform: $platform"
+printf "  Detecting platform... "
+echo "$platform"
 
 # Get latest version from GitHub
-echo "Fetching latest version..."
+printf "  Fetching latest version... "
 version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$version" ]; then
-    echo "Error: Could not determine latest version"
+    echo "failed"
+    echo "  Error: Could not determine latest version"
     exit 1
 fi
-
-echo "Latest version: $version"
+echo "$version"
 
 # Create install directory if it doesn't exist
 mkdir -p "$INSTALL_DIR"
 
 # Download binary
+printf "  Downloading binary... "
 download_url="https://github.com/$REPO/releases/download/$version/claude-historian-$platform"
-echo "Downloading from: $download_url"
 
 if ! curl -fsSL "$download_url" -o "$INSTALL_DIR/claude-historian"; then
-    echo "Error: Download failed"
+    echo "failed"
+    echo "  Error: Download failed"
     exit 1
 fi
+echo "done"
 
 # Make executable
 chmod +x "$INSTALL_DIR/claude-historian"
@@ -50,17 +67,16 @@ chmod +x "$INSTALL_DIR/claude-historian"
 ln -sf "$INSTALL_DIR/claude-historian" "$INSTALL_DIR/ch"
 
 echo ""
-echo "✅ claude-historian $version installed to $INSTALL_DIR/claude-historian"
-echo "   Shortcut 'ch' also available"
+echo "  ✅ Installed successfully!"
+echo ""
+echo "  Usage:"
+echo "    ch                  Launch session browser"
+echo "    claude-historian    Same thing, longer name"
 echo ""
 
 # Check if install dir is in PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo "⚠️  $INSTALL_DIR is not in your PATH"
-    echo "   Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-    echo ""
-    echo "   export PATH=\"\$PATH:$INSTALL_DIR\""
+    echo "  ⚠️  Add to your PATH:"
+    echo "    export PATH=\"\$PATH:$INSTALL_DIR\""
     echo ""
 fi
-
-echo "Run 'ch' (or 'claude-historian') to browse your Claude Code sessions!"
