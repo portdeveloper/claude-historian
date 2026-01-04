@@ -174,7 +174,7 @@ export function App() {
             .then((results) => {
               const successIds = new Set(
                 results
-                  .map((r, i) => (r.success ? filePaths[i].id : null))
+                  .map((r, i) => (r.success ? filePaths[i]?.id : null))
                   .filter((id): id is string => id !== null)
               );
               const failCount = results.filter((r) => !r.success).length;

@@ -72,26 +72,27 @@ export async function scanSessions(): Promise<Project[]> {
   const sessionFiles = await discoverSessionFiles();
   const projectMap = new Map<string, Session[]>();
 
-  // Parse each session file
-  for (const { filePath, projectPath: fallbackPath, sessionId } of sessionFiles) {
-    try {
-      const session = await parseSessionFile(filePath, fallbackPath, sessionId);
-
-      // Skip empty sessions (no messages = nothing to resume)
-      if (session.messageCount === 0) {
-        continue;
+  // Parse all session files in parallel
+  const parseResults = await Promise.all(
+    sessionFiles.map(async ({ filePath, projectPath: fallbackPath, sessionId }) => {
+      try {
+        return await parseSessionFile(filePath, fallbackPath, sessionId);
+      } catch (err) {
+        debug(`Failed to parse session file: ${filePath}`, err);
+        return null;
       }
+    })
+  );
 
-      // Group by actual project path from session (extracted from cwd)
-      const actualPath = session.projectPath;
-      if (!projectMap.has(actualPath)) {
-        projectMap.set(actualPath, []);
-      }
-      projectMap.get(actualPath)!.push(session);
-    } catch (err) {
-      debug(`Failed to parse session file: ${filePath}`, err);
-      continue;
+  // Group sessions by project
+  for (const session of parseResults) {
+    if (!session || session.messageCount === 0) continue;
+
+    const actualPath = session.projectPath;
+    if (!projectMap.has(actualPath)) {
+      projectMap.set(actualPath, []);
     }
+    projectMap.get(actualPath)!.push(session);
   }
 
   // Batch check directory existence for all projects

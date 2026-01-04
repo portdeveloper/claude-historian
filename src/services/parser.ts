@@ -3,8 +3,16 @@ import { access } from 'fs/promises';
 import { createInterface } from 'readline';
 import { getShortPath } from '../utils/paths';
 import { debug } from '../utils/log';
-import { RawLineSchema } from '../types';
-import type { Session, RawSummaryLine, RawUserMessage, RawAssistantMessage } from '../types';
+import type { Session } from '../types';
+
+// Lightweight type guard - no Zod overhead
+function getLineType(data: unknown): string | null {
+  if (typeof data === 'object' && data !== null && 'type' in data) {
+    const type = (data as Record<string, unknown>).type;
+    return typeof type === 'string' ? type : null;
+  }
+  return null;
+}
 
 /**
  * Parse a session .jsonl file and extract metadata
@@ -40,67 +48,61 @@ export async function parseSessionFile(
       if (!line.trim()) continue;
       lineNumber++;
 
-      // Parse JSON and validate with Zod
-      let jsonData: unknown;
+      // Parse JSON directly - skip Zod for performance
+      let parsed: Record<string, unknown>;
       try {
-        jsonData = JSON.parse(line);
+        parsed = JSON.parse(line);
       } catch (err) {
         debug(`JSON parse error in ${filePath}:${lineNumber}`, err);
         continue;
       }
 
-      const result = RawLineSchema.safeParse(jsonData);
-      if (!result.success) {
-        debug(`Schema validation error in ${filePath}:${lineNumber}`, result.error.message);
-        continue;
-      }
-
-      const parsed = result.data;
+      const lineType = getLineType(parsed);
+      if (!lineType) continue;
 
       // First line is usually the summary
-      if (parsed.type === 'summary' && lineNumber === 1) {
-        summary = (parsed as RawSummaryLine).summary || '';
+      if (lineType === 'summary' && lineNumber === 1) {
+        summary = typeof parsed.summary === 'string' ? parsed.summary : '';
       }
 
       // Count user and assistant messages
-      if (parsed.type === 'user') {
+      if (lineType === 'user') {
         messageCount++;
-        const userMsg = parsed as RawUserMessage;
 
         // Get timestamp
-        if (userMsg.timestamp) {
-          const ts = new Date(userMsg.timestamp);
+        if (typeof parsed.timestamp === 'string') {
+          const ts = new Date(parsed.timestamp);
           if (!lastTimestamp || ts > lastTimestamp) {
             lastTimestamp = ts;
           }
         }
 
         // Get git branch from first user message
-        if (!gitBranch && userMsg.gitBranch) {
-          gitBranch = userMsg.gitBranch;
+        if (!gitBranch && typeof parsed.gitBranch === 'string') {
+          gitBranch = parsed.gitBranch;
         }
 
         // Get actual project path from cwd
-        if (!projectPath && userMsg.cwd) {
-          projectPath = userMsg.cwd;
+        if (!projectPath && typeof parsed.cwd === 'string') {
+          projectPath = parsed.cwd;
         }
 
         // If no summary, use first user message content as fallback
-        if (!summary && userMsg.message?.content) {
-          const content = userMsg.message.content;
-          summary = typeof content === 'string'
-            ? content.slice(0, 100)
-            : 'Session';
+        if (!summary) {
+          const message = parsed.message as Record<string, unknown> | undefined;
+          const content = message?.content;
+          if (typeof content === 'string') {
+            summary = content.slice(0, 100);
+          }
         }
       }
 
-      if (parsed.type === 'assistant') {
+      if (lineType === 'assistant') {
         messageCount++;
-        const assistantMsg = parsed as RawAssistantMessage;
 
         // Get timestamp
-        if (assistantMsg.timestamp) {
-          const ts = new Date(assistantMsg.timestamp);
+        if (typeof parsed.timestamp === 'string') {
+          const ts = new Date(parsed.timestamp);
           if (!lastTimestamp || ts > lastTimestamp) {
             lastTimestamp = ts;
           }
@@ -163,43 +165,43 @@ export async function parseSessionMessages(
       if (!line.trim()) continue;
       if (messages.length >= limit) break;
 
-      let jsonData: unknown;
+      let parsed: Record<string, unknown>;
       try {
-        jsonData = JSON.parse(line);
+        parsed = JSON.parse(line);
       } catch {
         continue;
       }
 
-      const result = RawLineSchema.safeParse(jsonData);
-      if (!result.success) continue;
+      const lineType = getLineType(parsed);
+      if (!lineType) continue;
 
-      const parsed = result.data;
-
-      if (parsed.type === 'user') {
-        const userMsg = parsed as RawUserMessage;
-        const content = userMsg.message?.content;
-        if (content && typeof content === 'string') {
+      if (lineType === 'user') {
+        const message = parsed.message as Record<string, unknown> | undefined;
+        const content = message?.content;
+        if (typeof content === 'string') {
           messages.push({
             role: 'user',
             content,
-            timestamp: userMsg.timestamp ? new Date(userMsg.timestamp) : undefined,
+            timestamp: typeof parsed.timestamp === 'string' ? new Date(parsed.timestamp) : undefined,
           });
         }
       }
 
-      if (parsed.type === 'assistant') {
-        const assistantMsg = parsed as RawAssistantMessage;
+      if (lineType === 'assistant') {
+        const message = parsed.message as Record<string, unknown> | undefined;
+        const contentArr = message?.content as Array<Record<string, unknown>> | undefined;
+
         // Extract text content from assistant message
-        const textContent = assistantMsg.message?.content
-          ?.filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-          .map((c) => c.text)
+        const textContent = contentArr
+          ?.filter((c) => c.type === 'text' && typeof c.text === 'string')
+          .map((c) => c.text as string)
           .join('\n');
 
         if (textContent) {
           messages.push({
             role: 'assistant',
             content: textContent,
-            timestamp: assistantMsg.timestamp ? new Date(assistantMsg.timestamp) : undefined,
+            timestamp: typeof parsed.timestamp === 'string' ? new Date(parsed.timestamp) : undefined,
           });
         }
       }
