@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { unlink } from 'fs/promises';
 
 /**
  * Launch Claude Code with a specific session
@@ -21,4 +22,11 @@ export function launchSession(sessionId: string, cwd: string): void {
   child.on('exit', (code) => {
     process.exit(code ?? 0);
   });
+}
+
+/**
+ * Delete a session file
+ */
+export async function deleteSession(filePath: string): Promise<void> {
+  await unlink(filePath);
 }

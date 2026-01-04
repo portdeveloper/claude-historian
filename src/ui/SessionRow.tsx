@@ -31,6 +31,9 @@ export function SessionRow({ session, isSelected, isLast }: Props) {
       >
         {summary}
       </Text>
+      {session.gitBranch && (
+        <Text color="magenta" dimColor={!isSelected} wrap="truncate"> [{session.gitBranch}]</Text>
+      )}
       <Text dimColor wrap="truncate">  {timeStr}  {msgCount}</Text>
     </Box>
   );

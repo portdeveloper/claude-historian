@@ -8,13 +8,14 @@ import type { Session, RawLine, RawSummaryLine, RawUserMessage, RawAssistantMess
  */
 export async function parseSessionFile(
   filePath: string,
-  projectPath: string,
+  fallbackProjectPath: string,
   sessionId: string
 ): Promise<Session> {
   let summary = '';
   let messageCount = 0;
   let lastTimestamp: Date | null = null;
   let gitBranch: string | undefined;
+  let projectPath: string | undefined;
 
   const fileStream = createReadStream(filePath);
   const rl = createInterface({
@@ -54,6 +55,11 @@ export async function parseSessionFile(
           gitBranch = userMsg.gitBranch;
         }
 
+        // Get actual project path from cwd
+        if (!projectPath && userMsg.cwd) {
+          projectPath = userMsg.cwd;
+        }
+
         // If no summary, use first user message content as fallback
         if (!summary && userMsg.message?.content) {
           const content = userMsg.message.content;
@@ -81,11 +87,13 @@ export async function parseSessionFile(
     }
   }
 
+  const finalProjectPath = projectPath || fallbackProjectPath;
+
   return {
     id: sessionId,
     filePath,
-    projectPath,
-    shortPath: getShortPath(projectPath),
+    projectPath: finalProjectPath,
+    shortPath: getShortPath(finalProjectPath),
     summary: summary || 'Untitled session',
     updatedAt: lastTimestamp || new Date(0),
     messageCount,

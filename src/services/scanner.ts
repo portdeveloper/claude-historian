@@ -72,19 +72,21 @@ export async function scanSessions(): Promise<Project[]> {
   const projectMap = new Map<string, Session[]>();
 
   // Parse each session file
-  for (const { filePath, projectPath, sessionId } of sessionFiles) {
+  for (const { filePath, projectPath: fallbackPath, sessionId } of sessionFiles) {
     try {
-      const session = await parseSessionFile(filePath, projectPath, sessionId);
+      const session = await parseSessionFile(filePath, fallbackPath, sessionId);
 
       // Skip empty sessions (no messages = nothing to resume)
       if (session.messageCount === 0) {
         continue;
       }
 
-      if (!projectMap.has(projectPath)) {
-        projectMap.set(projectPath, []);
+      // Group by actual project path from session (extracted from cwd)
+      const actualPath = session.projectPath;
+      if (!projectMap.has(actualPath)) {
+        projectMap.set(actualPath, []);
       }
-      projectMap.get(projectPath)!.push(session);
+      projectMap.get(actualPath)!.push(session);
     } catch {
       // Skip files that fail to parse
       continue;

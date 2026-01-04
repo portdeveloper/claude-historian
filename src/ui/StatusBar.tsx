@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 
 interface Props {
-  mode: 'browse' | 'search';
+  mode: 'browse' | 'search' | 'confirm-delete';
 }
 
 export function StatusBar({ mode }: Props) {
@@ -14,10 +14,18 @@ export function StatusBar({ mode }: Props) {
     );
   }
 
+  if (mode === 'confirm-delete') {
+    return (
+      <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingX={1}>
+        <Text dimColor>[y confirm] [n/esc cancel]</Text>
+      </Box>
+    );
+  }
+
   return (
     <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} paddingX={1}>
       <Text dimColor>
-        [↑↓ navigate] [←→ expand/collapse] [enter select] [/ search] [q quit]
+        [↑↓ move] [←→ expand] [enter select] [d delete] [r refresh] [/ search] [? help] [q quit]
       </Text>
     </Box>
   );

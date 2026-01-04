@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { scanSessions } from '../services/scanner';
-import { launchSession } from '../services/launcher';
+import { launchSession, deleteSession } from '../services/launcher';
 import { ProjectTree } from './ProjectTree';
 import { StatusBar } from './StatusBar';
 import { SearchInput } from './SearchInput';
@@ -24,10 +24,12 @@ export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mode, setMode] = useState<'browse' | 'search'>('browse');
+  const [mode, setMode] = useState<'browse' | 'search' | 'confirm-delete'>('browse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMissing, setShowMissing] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Calculate visible height for the tree
   const terminalHeight = stdout?.rows || 24;
@@ -84,6 +86,38 @@ export function App() {
 
   // Handle keyboard input
   useInput((input, key) => {
+    // Handle delete confirmation mode
+    if (mode === 'confirm-delete') {
+      if (input === 'y' || input === 'Y') {
+        if (sessionToDelete) {
+          deleteSession(sessionToDelete.filePath)
+            .then(() => {
+              // Remove session from state
+              setProjects((prev) =>
+                prev.map((p) => ({
+                  ...p,
+                  sessions: p.sessions.filter((s) => s.id !== sessionToDelete.id),
+                })).filter((p) => p.sessions.length > 0)
+              );
+              setSessionToDelete(null);
+              setMode('browse');
+            })
+            .catch((err) => {
+              setError(`Failed to delete: ${err.message}`);
+              setSessionToDelete(null);
+              setMode('browse');
+            });
+        }
+        return;
+      }
+      if (input === 'n' || input === 'N' || key.escape) {
+        setSessionToDelete(null);
+        setMode('browse');
+        return;
+      }
+      return;
+    }
+
     if (mode === 'search') {
       if (key.escape) {
         setMode('browse');
@@ -100,6 +134,59 @@ export function App() {
 
     if (input === '/') {
       setMode('search');
+      return;
+    }
+
+    if (input === 'd' || input === 'D') {
+      const item = flatItems[selectedIndex];
+      if (item?.type === 'session' && item.session) {
+        setSessionToDelete(item.session);
+        setMode('confirm-delete');
+      }
+      return;
+    }
+
+    // Close help on any key
+    if (showHelp) {
+      setShowHelp(false);
+      return;
+    }
+
+    // Help overlay toggle
+    if (input === '?') {
+      setShowHelp(true);
+      return;
+    }
+
+    // Go to top
+    if (input === 'g') {
+      setSelectedIndex(0);
+      setScrollOffset(0);
+      return;
+    }
+
+    // Go to bottom
+    if (input === 'G') {
+      const lastIndex = flatItems.length - 1;
+      setSelectedIndex(lastIndex);
+      setScrollOffset(Math.max(0, lastIndex - visibleHeight + 1));
+      return;
+    }
+
+    // Refresh
+    if (input === 'r') {
+      setLoading(true);
+      scanSessions()
+        .then((p) => {
+          setProjects(p);
+          setLoading(false);
+          setSelectedIndex(0);
+          setScrollOffset(0);
+        })
+        .catch((err) => {
+          setError(err.message);
+          setLoading(false);
+        });
       return;
     }
 
@@ -243,6 +330,35 @@ export function App() {
           missingSessionCount={missingSessionCount}
         />
       </Box>
+
+      {mode === 'confirm-delete' && sessionToDelete && (
+        <Box paddingX={1} paddingY={1} flexDirection="column">
+          <Text color="yellow">Delete this session?</Text>
+          <Text dimColor>"{sessionToDelete.summary}"</Text>
+          <Text>
+            <Text color="green">[y]</Text> Yes, delete
+            <Text color="red">[n]</Text> No, cancel
+          </Text>
+        </Box>
+      )}
+
+      {showHelp && (
+        <Box paddingX={1} paddingY={1} flexDirection="column" borderStyle="round" borderColor="cyan">
+          <Text bold color="cyan">Keyboard Shortcuts</Text>
+          <Text> </Text>
+          <Text><Text color="yellow">↑/↓</Text>     Navigate up/down</Text>
+          <Text><Text color="yellow">←/→</Text>     Collapse/expand project</Text>
+          <Text><Text color="yellow">enter</Text>   Select session to resume</Text>
+          <Text><Text color="yellow">g</Text>       Go to top</Text>
+          <Text><Text color="yellow">G</Text>       Go to bottom</Text>
+          <Text><Text color="yellow">d</Text>       Delete selected session</Text>
+          <Text><Text color="yellow">r</Text>       Refresh list</Text>
+          <Text><Text color="yellow">/</Text>       Search</Text>
+          <Text><Text color="yellow">q</Text>       Quit</Text>
+          <Text> </Text>
+          <Text dimColor>Press any key to close</Text>
+        </Box>
+      )}
 
       <StatusBar mode={mode} />
     </Box>
