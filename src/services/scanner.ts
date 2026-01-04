@@ -7,6 +7,7 @@ import {
   isMainSessionFile,
   getSessionIdFromFilename
 } from '../utils/paths';
+import { debug } from '../utils/log';
 import { parseSessionFile } from './parser';
 import type { Project, Session } from '../types';
 
@@ -52,8 +53,8 @@ async function discoverSessionFiles(): Promise<SessionFile[]> {
             sessionId: getSessionIdFromFilename(file),
           });
         }
-      } catch {
-        // Skip directories we can't read
+      } catch (err) {
+        debug(`Skipping unreadable directory: ${projectDir}`, err);
         continue;
       }
     }
@@ -87,11 +88,16 @@ export async function scanSessions(): Promise<Project[]> {
         projectMap.set(actualPath, []);
       }
       projectMap.get(actualPath)!.push(session);
-    } catch {
-      // Skip files that fail to parse
+    } catch (err) {
+      debug(`Failed to parse session file: ${filePath}`, err);
       continue;
     }
   }
+
+  // Batch check directory existence for all projects
+  const paths = Array.from(projectMap.keys());
+  const existsResults = await Promise.all(paths.map(directoryExists));
+  const existsMap = new Map(paths.map((p, i) => [p, existsResults[i]]));
 
   // Convert to Project array, sorted by most recent activity
   const projects: Project[] = [];
@@ -100,15 +106,12 @@ export async function scanSessions(): Promise<Project[]> {
     // Sort sessions by updatedAt (most recent first)
     sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-    // Check if project directory still exists
-    const exists = await directoryExists(path);
-
     projects.push({
       path,
       shortPath: getShortPath(path),
       sessions,
       expanded: false,
-      exists,
+      exists: existsMap.get(path) ?? false,
     });
   }
 
@@ -120,8 +123,9 @@ export async function scanSessions(): Promise<Project[]> {
   });
 
   // Expand the first project by default
-  if (projects.length > 0) {
-    projects[0].expanded = true;
+  const firstProject = projects[0];
+  if (firstProject) {
+    firstProject.expanded = true;
   }
 
   return projects;

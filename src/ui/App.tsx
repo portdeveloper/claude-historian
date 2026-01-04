@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { scanSessions } from '../services/scanner';
 import { launchSession, deleteSession } from '../services/launcher';
@@ -48,8 +48,11 @@ export function App() {
       });
   }, []);
 
-  // Separate existing and missing projects
-  const filteredProjects = filterProjects(projects, searchQuery);
+  // Separate existing and missing projects (memoized to avoid re-filtering on every render)
+  const filteredProjects = useMemo(
+    () => filterProjects(projects, searchQuery),
+    [projects, searchQuery]
+  );
   const existingProjects = filteredProjects.filter(p => p.exists);
   const missingProjects = filteredProjects.filter(p => !p.exists);
   const missingSessionCount = missingProjects.reduce((sum, p) => sum + p.sessions.length, 0);
@@ -90,22 +93,23 @@ export function App() {
     if (mode === 'confirm-delete') {
       if (input === 'y' || input === 'Y') {
         if (sessionToDelete) {
-          deleteSession(sessionToDelete.filePath)
+          // Capture session in local variable to avoid race condition
+          const sessionToDeleteNow = sessionToDelete;
+          setSessionToDelete(null);
+          setMode('browse');
+
+          deleteSession(sessionToDeleteNow.filePath)
             .then(() => {
               // Remove session from state
               setProjects((prev) =>
                 prev.map((p) => ({
                   ...p,
-                  sessions: p.sessions.filter((s) => s.id !== sessionToDelete.id),
+                  sessions: p.sessions.filter((s) => s.id !== sessionToDeleteNow.id),
                 })).filter((p) => p.sessions.length > 0)
               );
-              setSessionToDelete(null);
-              setMode('browse');
             })
             .catch((err) => {
               setError(`Failed to delete: ${err.message}`);
-              setSessionToDelete(null);
-              setMode('browse');
             });
         }
         return;
@@ -321,7 +325,6 @@ export function App() {
 
       <Box flexDirection="column" paddingX={1} paddingY={1} overflow="hidden">
         <ProjectTree
-          projects={existingProjects}
           flatItems={flatItems}
           selectedIndex={selectedIndex}
           scrollOffset={scrollOffset}

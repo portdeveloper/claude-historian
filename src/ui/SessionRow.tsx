@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Text } from 'ink';
 import { formatRelativeTime } from '../utils/time';
 import type { Session } from '../types';

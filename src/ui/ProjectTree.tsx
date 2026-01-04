@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Text } from 'ink';
 import { ProjectRow } from './ProjectRow';
 import { SessionRow } from './SessionRow';
@@ -12,7 +11,6 @@ interface FlatItem {
 }
 
 interface Props {
-  projects: Project[];
   flatItems: FlatItem[];
   selectedIndex: number;
   scrollOffset: number;
@@ -21,7 +19,7 @@ interface Props {
   missingSessionCount: number;
 }
 
-export function ProjectTree({ projects, flatItems, selectedIndex, scrollOffset, visibleHeight, showMissing, missingSessionCount }: Props) {
+export function ProjectTree({ flatItems, selectedIndex, scrollOffset, visibleHeight, showMissing, missingSessionCount }: Props) {
   // Only render visible items
   const visibleItems = flatItems.slice(scrollOffset, scrollOffset + visibleHeight);
 

@@ -13,7 +13,8 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "^19.2.7"
+    "@types/react": "^19.2.7",
+    "react-devtools-core": "^7.0.1"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -23,7 +24,6 @@
     "ink": "^6.6.0",
     "ink-text-input": "^6.0.0",
     "react": "^19.2.3",
-    "react-devtools-core": "^7.0.1",
     "zod": "^4.3.5"
   }
 }
