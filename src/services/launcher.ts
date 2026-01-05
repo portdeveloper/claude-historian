@@ -22,6 +22,11 @@ export function launchSession(sessionId: string, cwd: string): void {
     process.exit(1);
   }
 
+  // Reset terminal state before spawning (Ink may have left raw mode enabled)
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(false);
+  }
+
   // Spawn claude --resume in the project directory
   const child = spawn('claude', ['--resume', sessionId], {
     cwd,
