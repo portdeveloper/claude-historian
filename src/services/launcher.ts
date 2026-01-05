@@ -1,14 +1,19 @@
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 export interface DeleteResult {
   success: boolean;
   error?: string;
 }
 
+// Temp file where we write the launch command for the shell wrapper
+export const LAUNCH_FILE = join(tmpdir(), 'claude-historian-launch');
+
 /**
  * Launch Claude Code with a specific session
+ * Writes command to temp file and exits - shell wrapper will exec it
  */
 export function launchSession(sessionId: string, cwd: string): void {
   // Validate inputs
@@ -22,28 +27,12 @@ export function launchSession(sessionId: string, cwd: string): void {
     process.exit(1);
   }
 
-  // Reset terminal state before spawning (Ink may have left raw mode enabled)
-  if (process.stdin.isTTY) {
-    process.stdin.setRawMode(false);
-  }
+  // Write launch info to temp file for shell wrapper to exec
+  const launchCmd = `cd ${JSON.stringify(cwd)} && exec claude --resume ${sessionId}`;
+  writeFileSync(LAUNCH_FILE, launchCmd);
 
-  // Spawn claude --resume in the project directory
-  const child = spawn('claude', ['--resume', sessionId], {
-    cwd,
-    stdio: 'inherit',
-    detached: false,
-  });
-
-  // Handle errors
-  child.on('error', (err) => {
-    console.error('Failed to launch Claude:', err.message);
-    process.exit(1);
-  });
-
-  // Exit when Claude exits
-  child.on('exit', (code) => {
-    process.exit(code ?? 0);
-  });
+  // Exit with special code 100 to signal "launch session"
+  process.exit(100);
 }
 
 /**

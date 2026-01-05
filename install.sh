@@ -49,19 +49,29 @@ echo "$version"
 # Create install directory if it doesn't exist
 mkdir -p "$INSTALL_DIR"
 
-# Download binary
-printf "  Downloading binary... "
-download_url="https://github.com/$REPO/releases/download/$version/claude-historian-$platform"
+# Download core binary
+printf "  Downloading core binary... "
+core_url="https://github.com/$REPO/releases/download/$version/claude-historian-core-$platform"
 
-if ! curl -fsSL "$download_url" -o "$INSTALL_DIR/claude-historian"; then
+if ! curl -fsSL "$core_url" -o "$INSTALL_DIR/.claude-historian-core"; then
     echo "failed"
     echo "  Error: Download failed"
     exit 1
 fi
+chmod +x "$INSTALL_DIR/.claude-historian-core"
 echo "done"
 
-# Make executable
+# Download wrapper script
+printf "  Downloading wrapper... "
+wrapper_url="https://github.com/$REPO/releases/download/$version/claude-historian"
+
+if ! curl -fsSL "$wrapper_url" -o "$INSTALL_DIR/claude-historian"; then
+    echo "failed"
+    echo "  Error: Download failed"
+    exit 1
+fi
 chmod +x "$INSTALL_DIR/claude-historian"
+echo "done"
 
 # Create ch shortcut symlink
 ln -sf "$INSTALL_DIR/claude-historian" "$INSTALL_DIR/ch"
