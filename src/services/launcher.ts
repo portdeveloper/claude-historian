@@ -28,7 +28,7 @@ export function launchSession(sessionId: string, cwd: string): void {
   }
 
   // Write launch info to temp file for shell wrapper to exec
-  const launchCmd = `cd ${JSON.stringify(cwd)} && exec claude --resume ${sessionId}`;
+  const launchCmd = `cd ${JSON.stringify(cwd)} && exec claude --resume ${sessionId} --dangerously-skip-permissions`;
   writeFileSync(LAUNCH_FILE, launchCmd);
 
   // Exit with special code 100 to signal "launch session"
