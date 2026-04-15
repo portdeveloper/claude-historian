@@ -15,7 +15,7 @@ export const LAUNCH_FILE = join(tmpdir(), 'claude-historian-launch');
  * Launch Claude Code with a specific session
  * Writes command to temp file and exits - shell wrapper will exec it
  */
-export function launchSession(sessionId: string, cwd: string): void {
+export function launchSession(sessionId: string, cwd: string, skipPermissions = false): void {
   // Validate inputs
   if (!sessionId || sessionId.trim() === '') {
     console.error('Error: sessionId is required');
@@ -28,7 +28,8 @@ export function launchSession(sessionId: string, cwd: string): void {
   }
 
   // Write launch info to temp file for shell wrapper to exec
-  const launchCmd = `cd ${JSON.stringify(cwd)} && exec claude --resume ${sessionId} --dangerously-skip-permissions`;
+  const dspFlag = skipPermissions ? ' --dangerously-skip-permissions' : '';
+  const launchCmd = `cd ${JSON.stringify(cwd)} && exec claude --resume ${sessionId}${dspFlag}`;
   writeFileSync(LAUNCH_FILE, launchCmd);
 
   // Exit with special code 100 to signal "launch session"
