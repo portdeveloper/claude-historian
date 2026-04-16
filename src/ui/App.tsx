@@ -25,7 +25,7 @@ interface FlatItem {
 const HEADER_LINES = 4; // Title + subtitle + padding
 const FOOTER_LINES = 2; // Status bar
 
-export function App() {
+export function App({ skipPermissions = false }: { skipPermissions?: boolean } = {}) {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -423,7 +423,7 @@ export function App() {
         }
         // Launch Claude with this session
         exit();
-        launchSession(item.session.id, item.project.path);
+        launchSession(item.session.id, item.project.path, skipPermissions);
       }
       return;
     }
